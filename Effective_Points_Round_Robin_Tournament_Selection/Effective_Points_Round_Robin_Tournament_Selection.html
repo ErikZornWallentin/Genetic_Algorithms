@@ -1,0 +1,411 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>EP - Round Robin Tournament Selection</title>
+    <style>
+        .container {
+            width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid black;
+            border-radius: 1%;
+            background-color: white; 
+        }
+        
+        .display {
+            width: 98%;
+            height: 40px;
+            font-size: 30px;
+            text-align: right;
+            margin-bottom: 15px;
+            padding-right: 5px;
+        }
+		
+		span.smalltab{
+			padding: 0 10px; 
+		}
+		
+		span.tab{
+			padding: 0 10px;
+		}
+        
+        table {
+            width: 100%;
+            padding: 5px;
+        }
+        
+        table td {
+            width: 20%;
+            margin: 3px;
+            text-align: center;
+        }
+        
+        .button {
+            width: 100%;
+            height: 30px;
+            font-size: 70px;
+            color: #222;
+        }
+		
+		.buttonSetup {
+            width: 100px;
+            height: 30px;
+            font-size: 20px;
+            color: #222;
+        }
+		
+    </style>
+    <script type="text/javascript">
+	/* 	
+		Author: Erik Zorn - Wallentin 
+		Created: Friday, April. 8 / 2016
+		
+		The was created during my 3rd year of University.
+		This was part of a independent course project that I did during CIS*4900 class.
+		
+		"Tournament selection is a method of selecting an individual from a population of individuals in a genetic algorithm.
+		Tournament selection involves running several "tournaments" among a few individuals (or 'chromosomes') chosen at random from the population. 
+		The winner of each tournament (the one with the best fitness) is selected for crossover." Quote from Wiki on Tournament Selection.
+		
+		I am using this genetic algorithm as a potential use in my AI system, I will compare the results to other genetic algorithms before deciding which one I will use.
+		It will be compared against other genetic algorithms such as: FPS with fitness scaling, Tournament Selection, "Round Robinish" Tournament Selction, etc.
+		In some cases, I may use several different genetic algorithms or combined versions in my AI system, but that has yet to be decided.
+		
+		See wiki for more info: https://en.wikipedia.org/wiki/Tournament_selection
+		
+		In plain words, RR.TS(Round Robin Tournament selection) first sorts from best to worst.
+		After it will choose the best monster and compare it against alpha as the chance to lose using a randomly generated number.
+		If the target wins against alpha the algorithm stops and the best monster is chosen, but if alpha wins it will move onto the next best monster in the list to compare against.
+		The cycle continues until no more targets are left and it displays a winning / losing target that is dependent on alpha.
+		
+		I use the wiki as my reference for my project, and added a few modifications to it.
+		I fully understand this code as I wrote it and I am able to describe it to a "non-programmer" if requested.
+		
+		Pseudo code:
+			The algorithm: (pChooseWorst)
+			1) Sort the monsters from highest probability to lowest
+			2) monsterChoice = 1
+			3) randomNum = random number between 0 and 1
+			4) if randomNum > pChooseWorst
+				   return monsterChoice
+			5) monsterChoice = monsterChoice + 1
+			6) if monsterChoice = numOfMonsters
+				   return monsterChoice
+			7) Go to step 3
+		
+
+		Feature's: Takes 4 target's and chooses the target based on the alpha value given.
+				   There is support to accept only the highest one too, just click on the check box for it to only choose the highest one! 
+				   In the case of a tie it will choose the last one found.
+				   Also takes an alpha modifier which allows you to reduce or increase the alpha probability after each "round".
+				   
+		Based on my AI system we will compare the pro's and con's of using this system:
+			Pro:
+				- Extremely "tunable" to perfectly support "dumb/smart" AI.
+				- Allows targets with 0 probability/EP to be chosen based on alpha value.
+				- Most efficient way for the AI to find a target based on the system we need while still being "tunable".
+			Con:
+				- Need to add modifications as it's sometimes hard to get the "2nd best / 2nd worst" target when probability is closer to 0.5,
+				  this was fixed by adding alpha modifier.
+		
+		AI Info: We gather Effective Points on each target, this is based on a different system and this system only cares about calculating those effective points.
+		         The targets with higher effective points will have higher probabilities. We want the monster with the highest probability to be chosen.
+				
+		Example Use 1:
+			First Target: 1
+			Second Target: 20
+			Third Target: 40
+			Fourth Target: 1000
+			Alpha( 0-1 ): 0.2
+			Alpha Modifier ( 0-1 ): 0.1
+			Always pick highest Target: NOT CHECKED
+			
+			--- OUTPUT ---
+			Target Chosen: Fourth Target -- 1000  ( most likely output )
+			Probabilities Used: 0.20
+			
+		Example Use 2:	
+			First Target: 66
+			Second Target: 55
+			Third Target: 74
+			Fourth Target: 1
+			Alpha( 0-1 ): 0.4
+			Alpha Modifier ( 0-1 ): 0.1
+			Always pick highest Target: NOT CHECKED
+			
+			--- OUTPUT ---
+			Target Chosen: Third Target -- 74 ( most likely output )
+			Probabilities Used: 0.40
+		
+	*/
+	
+	/* Array used to store the probabilities and effective points numbers */
+	var probabilityResult = [];
+	var effectivePointsArray = [
+			[1, 0],
+			[2, 0],
+			[3, 0],
+			[4, 0],
+			
+		];
+	var probabilityArray = [
+			[1, 0],
+			[2, 0],
+			[3, 0],
+			[4, 0],
+			
+		];
+	
+	/*-------
+		Purpose: On launch of the script this function is called, calls the reset function to reset everything
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function init (){
+		reset();
+	}
+		
+	/*-------
+		Purpose: Resets the program to the original state
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function reset () {
+		document.getElementById('showResult1').innerHTML = "";
+		document.getElementById('showResult2').innerHTML = "";
+		document.getElementById('1').value = "50";
+		document.getElementById('2').value = "90";
+		document.getElementById('3').value = "70";
+		document.getElementById('4').value = "5";
+		document.getElementById('5').value = "0.4";
+		document.getElementById('6').value = "0.1";
+		document.getElementById("Generate1").checked = false;
+		document.getElementById("Generate2").checked = true;
+	}
+	
+	function compareNumbers(a, b) {
+	  return b[1] - a[1];
+	}
+
+	/*-------
+		Purpose: Calls the fitness proportionate selection function to calculate the chosen number, and displays it on the screen
+		         For the AI system we need to convert the effective points into probabilities based on the effective points divided by total sum of effective points.
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function calculate(){
+		/* Reset arrays before doing any calculations */
+		effectivePointsArray = [
+			[1, 0],
+			[2, 0],
+			[3, 0],
+			[4, 0],
+			
+		];
+		probabilityArray = [
+			[1, 0],
+			[2, 0],
+			[3, 0],
+			[4, 0],
+			
+		];
+	
+		//alert(effectivePointsArray);
+		effectivePointsArray[0][1] = parseInt(document.getElementById('1').value);
+		effectivePointsArray[1][1] = parseInt(document.getElementById('2').value);
+		effectivePointsArray[2][1] = parseInt(document.getElementById('3').value);
+		effectivePointsArray[3][1] = parseInt(document.getElementById('4').value);
+		
+		/*
+		for(var i = 0; i < 4; i++) {
+			alert(effectivePointsArray[i][0] + ":" + effectivePointsArray[i][1]);
+		}*/
+		
+		/* Sort the Effective Points array from best(highest) to worst(lowest) */
+		effectivePointsArray.sort(compareNumbers);
+		
+		/*
+		for(var i = 0; i < 4; i++) {
+			alert(effectivePointsArray[i][0] + ":" + effectivePointsArray[i][1]);
+		}*/
+		
+		
+		var totalSum = 0;
+		/* Sum up all the values in the array */
+		for(var i = 0; i < 4; i++) {
+			totalSum += parseInt(effectivePointsArray[i][1]);
+		}
+		//alert(totalSum);
+		
+		/* If everything is set to 0, we will set the total sum to 1 so we can still accept the values */
+		if (totalSum == 0){
+			totalSum = 1;
+		}
+		
+		/* Give their probabilities based on their effective points against the total sum */
+		for(var i = 0; i < 4; i++) {
+			probabilityArray[i][0] = parseInt(effectivePointsArray[i][0]);
+			probabilityArray[i][1] = parseFloat(effectivePointsArray[i][1] / totalSum);
+		}
+		//alert(probabilityArray);
+		
+		
+		var result = roundRobinTournamentSelection();
+		
+		/* Display results on the screen to user */
+		if (result == 1){
+			document.getElementById('showResult1').innerHTML = "First Target -- " + document.getElementById('1').value;
+		}else if (result == 2){
+			document.getElementById('showResult1').innerHTML = "Second Target -- " + document.getElementById('2').value;
+		}else if (result == 3){
+			document.getElementById('showResult1').innerHTML = "Third Target -- " + document.getElementById('3').value;
+		}else if (result == 4){
+			document.getElementById('showResult1').innerHTML = "Fourth Target -- " + document.getElementById('4').value;
+		}
+		
+		var alwaysPickHighest = document.getElementById("Generate1").checked;
+		if (alwaysPickHighest){
+			document.getElementById('showResult2').innerHTML = "";
+		}else{
+			document.getElementById('showResult2').innerHTML = probabilityResult;
+		}
+		
+	}
+	
+	
+	
+	/*-------
+		Purpose: Using Round Robin Tournament Selection genetic algorithm concepts.
+				 Look above at the top of the file for full details.
+		Parameters: NONE
+		Return: chosen (result target to be displayed to user)
+	-------*/
+	function roundRobinTournamentSelection(){
+		var alwaysPickHighest = document.getElementById("Generate1").checked;
+		var increaseChance = document.getElementById("Generate2").checked;
+		if (alwaysPickHighest){
+			var highestAmount = 0.0;
+			var chosen = 0;
+			for(var i = 0; i < 4; i++) {
+				//alert(probabilityArray[i][1]);
+				if (highestAmount <= probabilityArray[i][1]){
+					//alert("HIGHEST: " + probabilityArray[i][1] + " ------ i: " + i);
+					highestAmount = parseFloat(probabilityArray[i][1]);
+					chosen = i;
+				}
+			}
+			/* So the user knows exactly the number that was returned */
+			return (probabilityArray[chosen][0]);
+		}else{
+			/*
+			Pseudo code:
+				The algorithm: (pChooseWorst)
+				1) Sort the monsters from highest probability to lowest
+				2) monsterChoice = 1
+				3) randomNum = random number between 0 and 1
+				4) if randomNum > pChooseWorst
+					   return monsterChoice
+				5) monsterChoice = monsterChoice + 1
+				6) if monsterChoice = numOfMonsters
+					   return monsterChoice
+				7) Go to step 3
+			*/
+			
+			/* Also known as alpha */
+			var pChooseWorst = parseFloat(document.getElementById('5').value);
+			var alphaModifier = parseFloat(document.getElementById('6').value);
+			var totalAlpha = pChooseWorst;
+			
+			/* Reset probability array that is displayed to user */
+			probabilityResult = [];
+			
+			//alert(pChooseWorst);
+			var monsterChoice = 0;
+			var numOfMonsters = 4;
+			var randomNum;
+			
+			while (monsterChoice < numOfMonsters){
+				randomNum = Math.random(); /* Return a random number between 0 (inclusive) and 1 (exclusive) */
+				
+				/* Display array to user */
+				var fixedAlphaProbability = totalAlpha.toFixed(2); 
+				probabilityResult.push(fixedAlphaProbability);
+				
+				if (randomNum > totalAlpha){
+					//alert(monsterChoice);
+					return probabilityArray[monsterChoice][0];
+				}
+				
+				if(increaseChance){
+					totalAlpha = totalAlpha - alphaModifier;
+				}else{
+					totalAlpha = totalAlpha + alphaModifier;
+				}
+				//alert(totalAlpha);
+				
+				monsterChoice = monsterChoice + 1;
+			}
+			return probabilityArray[numOfMonsters - 1][0];
+		}
+		return "ERROR";
+	}
+		
+    </script>
+	</head>
+	<!-- BUTTON AND TEXT SECTION -->
+	<body onload="init ()">
+		<center>
+			<font size="5" face="verdana" color="black"><b>Effective Points - Round Robin Tournament Selection</b></font> 
+		</center>
+		
+		<div class="container">
+			<table cellspacing="0">
+				<br>
+				<font size="2" face="verdana" color="red"><span class="tab"></span>- In plain words, RR.TS(Round Robin Tournament selection) first sorts from best to worst.
+																					After it will choose the best monster and compare it against alpha as the chance to lose using a randomly generated number.
+																					If the target wins against alpha the algorithm stops and the best monster is chosen, but if alpha wins it will move onto the next best monster in the list to compare against.
+																					The cycle continues until no more targets are left and it displays a winning / losing target that is dependent on alpha.</font><br>
+				<br>
+				<center>
+					<font size="4" face="verdana" color="black"><span class="tab"></span> <b> Effective Points <b> </font><br>
+				</center>
+				<br>
+					<td><b>First Target: <input type="text" id="1" size="17"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Second Target: <input type="text" id="2"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Third Target: <input type="text" id="3" size="19"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Fourth Target: <input type="text" id="4" size="20"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Alpha ( 0-1 ): <input type="text" id="5" size="18"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Alpha Modifier ( 0-1 ): <input type="text" id="6" size="29"></b><br></td>
+				</tr>
+				
+				
+			</table>
+			<center>
+				<font size="2" face="verdana" color="red"><span class="tab"></span>Closer to 0 means the chances of best monster chosen are increased.</font><br>
+				<font size="2" face="verdana" color="red"><span class="tab"></span>Closer to 1 means the chances of worst monster chosen are increased.</font><br>
+			</center>
+			<br>
+		</div>
+		
+		<center>
+			<br>
+			<td><input id="resetBtn" class="buttonSetup" type="button" value="Reset" onclick="reset ()"/></td><br>
+			<td><input id="calculateBtn" class="buttonSetup" type="button" value="Calculate" onclick="calculate ()"/></td><br><br>
+			<input type="checkbox" id="Generate1" name="generate1" value="Generate1"><b> Ignore genetic algorithm and pick highest target (check box)</b><br>
+			<input type="checkbox" id="Generate2" name="generate2" value="Generate2"><b> Alpha Modifier: increase(unchecked box)/ decrease(check box) next probabilities</b><br><br>
+			<font size="4" face="verdana" color="red"><b>Target Chosen: </b><span id="showResult1"></span></font><br>
+			<font size="3" face="verdana" color="red"><b>Probabilities Used: </b><span id="showResult2"></span></font><br>
+		</center>
+	</body>
+</html>

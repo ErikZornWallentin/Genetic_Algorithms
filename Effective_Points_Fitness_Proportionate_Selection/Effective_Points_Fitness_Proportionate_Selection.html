@@ -1,0 +1,271 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>EP - Fitness Proportionate Selection</title>
+    <style>
+        .container {
+            width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid black;
+            border-radius: 1%;
+            background-color: white; 
+        }
+        
+        .display {
+            width: 98%;
+            height: 40px;
+            font-size: 30px;
+            text-align: right;
+            margin-bottom: 15px;
+            padding-right: 5px;
+        }
+		
+		span.smalltab{
+			padding: 0 10px; 
+		}
+		
+		span.tab{
+			padding: 0 10px;
+		}
+        
+        table {
+            width: 100%;
+            padding: 5px;
+        }
+        
+        table td {
+            width: 20%;
+            margin: 3px;
+            text-align: center;
+        }
+        
+        .button {
+            width: 100%;
+            height: 30px;
+            font-size: 70px;
+            color: #222;
+        }
+		
+		.buttonSetup {
+            width: 100px;
+            height: 30px;
+            font-size: 20px;
+            color: #222;
+        }
+		
+    </style>
+    <script type="text/javascript">
+	/* 	
+		Author: Erik Zorn - Wallentin 
+		Created: Thursday, April. 7 / 2016
+		
+		The was created during my 3rd year of University.
+		This was part of a independent course project that I did during CIS*4900 class.
+		
+		" Fitness proportionate selection, also known as roulette wheel selection, 
+		is a genetic operator used in genetic algorithms for selecting potentially useful solutions for recombination."
+		
+		I am using this genetic algorithm as a potential use in my AI system, I will compare the results to other genetic algorithms before deciding which one I will use.
+		It will be compared against other genetic algorithms such as: FPS with fitness scaling, Tournament Selection, "Round Robinish" Tournament Selction, etc.
+		In some cases, I may use several different genetic algorithms or combined versions in my AI system, but that has yet to be decided.
+		
+		See wiki for more info: https://en.wikipedia.org/wiki/Fitness_proportionate_selection
+		
+		In plain words, FPS(Fitness proportionate selection) sums up the probabilities and chooses one of the probabilities,
+		where if one probability is much higher than the rest it is more likely to be chosen. In the case of probabilities being close to each other,
+		you will have different results more easily and won't always choose the same value.
+		
+		I use the wiki as my reference for my project, and added a few modifications to it.
+		I fully understand this code as I wrote it and I am able to describe it to a "non-programmer" if requested.
+
+		Feature's: Takes 4 targets and will choose the target based on their probabilities. 
+				   There is support to accept only the highest one too, just click on the check box for it to only choose the highest one! 
+				   In the case of a tie it will choose the last one found.
+				   
+		Based on my AI system we will compare the pro's and con's of using this system:
+			Pro:
+				- The one with highest probability usually gets selected, 
+				  and if it is much higher than the others it will almost always get selected.
+				- Efficient.
+				- Fitness scaling can help "ease" the results, for example if we add a million to each probability it will make all values "more closer" 
+				  and that way our choices are more equal.
+			Con:
+				- Not a useful to use when I make the AI "dumb" and I want the AI to choose one of the "weaker" options.
+				- If a probability is 0, we will never get that as a chosen value (which we do not want as we need it still as an option),
+				  Fitness scaling can solve this (raise 0 value, and raise everything else by same amount).
+				- Negative values will not work (fitness scaling can also solve this).
+		
+		AI Info: We gather Effective Points on each target, this is based on a different system and this system only cares about calculating those effective points.
+		         The targets with higher effective points will have higher probabilities. We want the monster with the highest probability to be chosen.
+				
+		Example Use 1:
+			First Target: 1
+			Second Target: 20
+			Third Target: 40
+			Fourth Target: 1000
+			Always pick highest target: NOT CHECKED
+			
+			--- OUTPUT ---
+			Target Chosen: 4 - Most likely!
+			
+		Example Use 2:	
+			First Target: 66
+			Second Target: 55
+			Third Target: 74
+			Fourth Target: 1
+			Always pick highest target: CHECKED
+			
+			--- OUTPUT ---
+			Target Chosen: 3
+		
+	*/
+	
+	/* Array used to store the probabilities and effective points numbers */
+	var effectivePointsArray = ["0", "0", "0", "0"];
+	var probabilityArray = ["0", "0", "0", "0"];
+	
+	/*-------
+		Purpose: On launch of the script this function is called, calls the reset function to reset everything
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function init (){
+		reset();
+	}
+		
+	/*-------
+		Purpose: Resets the program to the original state
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function reset () {
+		document.getElementById('showResult1').innerHTML = "";
+		document.getElementById('1').value = "50";
+		document.getElementById('2').value = "90";
+		document.getElementById('3').value = "70";
+		document.getElementById('4').value = "5";
+		document.getElementById("Generate1").checked = false;
+	}
+
+	/*-------
+		Purpose: Calls the fitness proportionate selection function to calculate the chosen number, and displays it on the screen
+		         For the AI system we need to convert the effective points into probabilities based on the effective points divided by total sum of effective points.
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function calculate(){	
+		effectivePointsArray = [document.getElementById('1').value, document.getElementById('2').value, document.getElementById('3').value, document.getElementById('4').value];
+		
+		var totalSum = 0;
+		/* Sum up all the values in the array */
+		for(var i = 0; i < effectivePointsArray.length; i++) {
+			totalSum += parseInt(effectivePointsArray[i]);
+		}
+		//alert(totalSum);
+		
+		/* If everything is set to 0, we will set the total sum to 1 so we can still accept the values */
+		if (totalSum == 0){
+			totalSum = 1;
+		}
+		
+		/* Give their probabilities based on their effective points against the total sum */
+		for(var i = 0; i < effectivePointsArray.length; i++) {
+			probabilityArray[i] = parseFloat(effectivePointsArray[i] / totalSum);
+		}
+		//alert(probabilityArray);
+		
+		var result = fitnessProportionateSelection();
+		document.getElementById('showResult1').innerHTML = result;
+	}
+	
+	/*-------
+		Purpose: Using Fitness Proportionate Selection genetic algorithm concepts.
+				 Look at top of file for the full description of what FPS does.
+		Parameters: NONE
+		Return: chosen (the slot of the probability that was chosen)
+	-------*/
+	function fitnessProportionateSelection(){
+		var alwaysPickHighest = document.getElementById("Generate1").checked;
+		
+		
+		if (alwaysPickHighest){
+			var highestAmount = 0.0;
+			var chosen = 0;
+			for(var i = 0; i < probabilityArray.length; i++) {
+				if (highestAmount <= probabilityArray[i]){
+					highestAmount = probabilityArray[i];
+					chosen = i;
+				}
+			}
+			/* So the user knows exactly the number that was returned */
+			return (chosen + 1);
+		}else{
+			/* Randomly select one based on their probabilities
+			   Get the total weight of all the probabilities and sum them together */
+			var weightSsum = 0.0;
+			for(var i = 0; i < probabilityArray.length; i++) {
+				weightSsum += parseFloat(probabilityArray[i]);
+			}
+			
+			/* Random value to determine which one we will select */
+			var value = Math.random() * weightSsum;	
+			
+			/* Determine which one to choose based on the weights and the random value */
+			for(var i = 0; i < probabilityArray.length; i++) {		
+				value -= probabilityArray[i];		
+				if(value <= 0){
+					/* So the user knows exactly the number that was returned */
+					return (i + 1);
+				} 
+			}
+		}
+		
+		/* Use when a rounding error occurs */
+		return "ERROR";
+
+	}
+		
+    </script>
+	</head>
+	<!-- BUTTON AND TEXT SECTION -->
+	<body onload="init ()">
+		<center>
+			<font size="5" face="verdana" color="black"><b>Effective Points - Fitness Proportionate Selection</b></font> 
+		</center>
+		
+		<div class="container">
+			<table cellspacing="0">
+				<br>
+				<font size="2" face="verdana" color="red"><span class="tab"></span>- In plain words, FPS(Fitness proportionate selection) sums up the probabilities and chooses one of the probabilities,
+																						where if one probability is much higher than the rest it is more likely to be chosen. In the case of probabilities being close to each other,
+																						you will have different results more easily and won't always choose the same value.   </font><br>
+				<br>
+				<center>
+					<font size="4" face="verdana" color="black"><span class="tab"></span> <b> Effective Points <b> </font><br>
+				</center>
+				<br>
+					<td><b>First Target: <input type="text" id="1" size="17"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Second Target: <input type="text" id="2"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Third Target: <input type="text" id="3" size="19"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Fourth Target: <input type="text" id="4" size="20"></b><br></td>
+				</tr>
+			</table>
+		</div>
+		
+		<center>
+			<br>
+			<td><input id="resetBtn" class="buttonSetup" type="button" value="Reset" onclick="reset ()"/></td><br>
+			<td><input id="calculateBtn" class="buttonSetup" type="button" value="Calculate" onclick="calculate ()"/></td><br><br>
+			<input type="checkbox" id="Generate1" name="generate1" value="Generate1"><b> Ignore genetic algorithm and pick highest target (check box)</b><br>
+			<font size="4" face="verdana" color="red"><b>Target Chosen: </b><span id="showResult1"></span></font><br>
+		</center>
+	</body>
+</html>

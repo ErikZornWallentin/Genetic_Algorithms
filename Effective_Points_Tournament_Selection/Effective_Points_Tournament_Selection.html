@@ -1,0 +1,342 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>EP - Tournament Selection</title>
+    <style>
+        .container {
+            width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid black;
+            border-radius: 1%;
+            background-color: white; 
+        }
+        
+        .display {
+            width: 98%;
+            height: 40px;
+            font-size: 30px;
+            text-align: right;
+            margin-bottom: 15px;
+            padding-right: 5px;
+        }
+		
+		span.smalltab{
+			padding: 0 10px; 
+		}
+		
+		span.tab{
+			padding: 0 10px;
+		}
+        
+        table {
+            width: 100%;
+            padding: 5px;
+        }
+        
+        table td {
+            width: 20%;
+            margin: 3px;
+            text-align: center;
+        }
+        
+        .button {
+            width: 100%;
+            height: 30px;
+            font-size: 70px;
+            color: #222;
+        }
+		
+		.buttonSetup {
+            width: 100px;
+            height: 30px;
+            font-size: 20px;
+            color: #222;
+        }
+		
+    </style>
+    <script type="text/javascript">
+	/* 	
+		Author: Erik Zorn - Wallentin 
+		Created: Thursday, April. 7 / 2016
+		
+		The was created during my 3rd year of University.
+		This was part of a independent course project that I did during CIS*4900 class.
+		
+		"Tournament selection is a method of selecting an individual from a population of individuals in a genetic algorithm.
+		Tournament selection involves running several "tournaments" among a few individuals (or 'chromosomes') chosen at random from the population. 
+		The winner of each tournament (the one with the best fitness) is selected for crossover." Quote from Wiki on Tournament Selection.
+		
+		I am using this genetic algorithm as a potential use in my AI system, I will compare the results to other genetic algorithms before deciding which one I will use.
+		It will be compared against other genetic algorithms such as: FPS with fitness scaling, Tournament Selection, "Round Robinish" Tournament Selction, etc.
+		In some cases, I may use several different genetic algorithms or combined versions in my AI system, but that has yet to be decided.
+		
+		See wiki for more info: https://en.wikipedia.org/wiki/Tournament_selection
+		
+		In plain words, TS(Tournament selection) selects "n" amount of targets to be selected,
+		where the highest probability among the randomly "n" selected wins.
+		
+		I use the wiki as my reference for my project, and added a few modifications to it.
+		I fully understand this code as I wrote it and I am able to describe it to a "non-programmer" if requested.
+
+		Feature's: Takes 4 target's and chooses the target based on the highest probability that was selected as 'n' number of selections.
+				   There is support to accept only the highest one too, just click on the check box for it to only choose the highest one! 
+				   In the case of a tie it will choose the last one found.
+				   
+		Based on my AI system we will compare the pro's and con's of using this system:
+			Pro:
+				- Allows the possibility of lower probabilities to win, which is "tunable".
+			Con:
+				- Not a useful to use when I make the AI "dumb" or when AI is "super smart" as it will generally not accept the correct target that I want.
+				- If a probability is 0, we will never get that as a chosen value (which we do not want, but we need it still as an option).
+		
+		AI Info: We gather Effective Points on each target, this is based on a different system and this system only cares about calculating those effective points.
+		         The targets with higher effective points will have higher probabilities. We want the monster with the highest probability to be chosen.
+				
+		Example Use 1:
+			First Target: 1
+			Second Target: 20
+			Third Target: 40
+			Fourth Target: 1000
+			Amount Selected(1-4): 3
+			Always pick highest Target: NOT CHECKED
+			
+			--- OUTPUT ---
+			Target Chosen: 4 - Most likely ( as long as 4 was among the randomly selected)
+			
+		Example Use 2:	
+			First Target: 66
+			Second Target: 55
+			Third Target: 74
+			Fourth Target: 1
+			Amount Selected(1-4): 3
+			Always pick highest Target: CHECKED
+			
+			--- OUTPUT ---
+			Target Chosen: 3
+		
+	*/
+	
+	/* Array used to store the probabilities and effective points numbers */
+	var effectivePointsArray = ["0", "0", "0", "0"];
+	var probabilityArray = ["0", "0", "0", "0"];
+	
+	/*-------
+		Purpose: On launch of the script this function is called, calls the reset function to reset everything
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function init (){
+		reset();
+	}
+		
+	/*-------
+		Purpose: Resets the program to the original state
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function reset () {
+		document.getElementById('showResult1').innerHTML = "";
+		document.getElementById('1').value = "50";
+		document.getElementById('2').value = "90";
+		document.getElementById('3').value = "70";
+		document.getElementById('4').value = "5";
+		document.getElementById('5').value = "2";
+		document.getElementById("Generate1").checked = false;
+	}
+
+	/*-------
+		Purpose: Calls the fitness proportionate selection function to calculate the chosen number, and displays it on the screen
+		         For the AI system we need to convert the effective points into probabilities based on the effective points divided by total sum of effective points.
+		Parameters: NONE
+		Return: NONE
+	-------*/
+	function calculate(){	
+		effectivePointsArray = [document.getElementById('1').value, document.getElementById('2').value, document.getElementById('3').value, document.getElementById('4').value];
+		
+		if (document.getElementById('5').value != "1" && document.getElementById('5').value != "2" && document.getElementById('5').value != "3" && document.getElementById('5').value != "4"){
+			document.getElementById('showResult1').innerHTML = "ERROR - Amount selected needs to be between 1-4!";
+			return;
+		}
+		
+		var totalSum = 0;
+		/* Sum up all the values in the array */
+		for(var i = 0; i < effectivePointsArray.length; i++) {
+			totalSum += parseInt(effectivePointsArray[i]);
+		}
+		//alert(totalSum);
+		
+		/* If everything is set to 0, we will set the total sum to 1 so we can still accept the values */
+		if (totalSum == 0){
+			totalSum = 1;
+		}
+		
+		/* Give their probabilities based on their effective points against the total sum */
+		for(var i = 0; i < effectivePointsArray.length; i++) {
+			probabilityArray[i] = parseFloat(effectivePointsArray[i] / totalSum);
+		}
+		//alert(probabilityArray);
+		
+		var result = tournamentSelection();
+		document.getElementById('showResult1').innerHTML = result;
+	}
+	
+	/*-------
+		Purpose: Using Fisher–Yates Shuffle algorithm.
+		         It shuffles an array with 4 numbers (0,1,2,3) and allows us to later pull 3 of them out and assures us they are non-repeating.
+		Parameters: NONE
+		Return: array (the full array of values)
+	-------*/
+	function shuffle(array) {
+		var i = array.length,
+			j = 0,
+			temp;
+
+		while (i--) {
+
+			j = Math.floor(Math.random() * (i+1));
+
+			/* swap randomly chosen element with current element */
+			temp = array[i];
+			array[i] = array[j];
+			array[j] = temp;
+
+		}
+
+		return array;
+	}
+	
+	/*-------
+		Purpose: Using Tournament Selection genetic algorithm concepts.
+		         It accepts a value between 1-4 where we choose how many probabilities will be compared against each other where the highest probability wins.
+				 1 - Automatically wins so show it
+				 2 - Randomly choose 2 probabilities and the highest among the 2 wins.
+				 3 - Randomly choose 3 probabilities and the highest among the 3 wins.
+				 4 - Highest probability is chosen as there 4 total.
+		Parameters: NONE
+		Return: chosen (result target to be displayed to user)
+	-------*/
+	function tournamentSelection(){
+		var alwaysPickHighest = document.getElementById("Generate1").checked;
+		
+		
+		if (alwaysPickHighest){
+			var highestAmount = 0.0;
+			var chosen = 0;
+			for(var i = 0; i < probabilityArray.length; i++) {
+				if (highestAmount <= probabilityArray[i]){
+					highestAmount = probabilityArray[i];
+					chosen = i;
+				}
+			}
+			/* So the user knows exactly the number that was returned */
+			return (chosen + 1);
+		}else{
+			/* Select amount of targets to compare against based on amount selected, and determine the highest among them as the winner */
+			   
+			/* Choose the number of choices to compare against - amountSelected is maximum amount of available to compare against */
+			var amountSelected = document.getElementById('5').value
+			/* Random number between 1-4 which is the maximum amount of targets chosen */
+			
+			var shuffleNumbers = shuffle([0,1,2,3]);
+			var firstRandomNum = shuffleNumbers[0];
+			var secondRandomNum = shuffleNumbers[1];
+			var thirdRandomNum = shuffleNumbers[2];
+			
+			//alert("first random: " + firstRandomNum);
+			//alert("second random: " + secondRandomNum);
+			//alert("third random: " + thirdRandomNum);
+			
+			var highestAmount = 0.0;
+			var chosen = 0;
+			
+			
+			if (amountSelected == 1){
+				/* Only 1 target chosen */
+				chosen = firstRandomNum;
+				return (chosen + 1);
+			}else if (amountSelected == 2){
+				/* 2 target's randomly chosen */
+				if (probabilityArray[firstRandomNum] > probabilityArray[secondRandomNum]){
+					chosen = firstRandomNum;
+				}else{
+					chosen = secondRandomNum;
+				}
+				/* So the user knows exactly the number that was returned */
+				return (chosen + 1);
+			}else if (amountSelected == 3){
+				/* 3 target's randomly chosen */
+				if (probabilityArray[firstRandomNum] > probabilityArray[secondRandomNum]){
+					if (probabilityArray[firstRandomNum] > probabilityArray[thirdRandomNum]){
+						chosen = firstRandomNum;
+					}else{
+						chosen = thirdRandomNum;
+					}
+				}else{
+					if (probabilityArray[secondRandomNum] > probabilityArray[thirdRandomNum]){
+						chosen = secondRandomNum;
+					}else{
+						chosen = thirdRandomNum;
+					}
+				}
+				return (chosen + 1);
+			}else if (amountSelected == 4){
+				/* 4 target's randomly chosen */
+				for(var i = 0; i < probabilityArray.length; i++) {
+					if (highestAmount <= probabilityArray[i]){
+						highestAmount = probabilityArray[i];
+						chosen = i;
+					}
+				}
+				/* So the user knows exactly the number that was returned */
+				return (chosen + 1);
+			}
+		}
+		return "ERROR";
+	}
+		
+    </script>
+	</head>
+	<!-- BUTTON AND TEXT SECTION -->
+	<body onload="init ()">
+		<center>
+			<font size="5" face="verdana" color="black"><b>Effective Points - Tournament Selection</b></font> 
+		</center>
+		
+		<div class="container">
+			<table cellspacing="0">
+				<br>
+				<font size="2" face="verdana" color="red"><span class="tab"></span>- In plain words, TS(Tournament selection) selects "n" amount of targets to be selected,
+																						where the highest probability among the randomly "n" selected wins.</font><br>
+				<br>
+				<center>
+					<font size="4" face="verdana" color="black"><span class="tab"></span> <b> Effective Points <b> </font><br>
+				</center>
+				<br>
+					<td><b>First Target: <input type="text" id="1" size="17"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Second Target: <input type="text" id="2"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Third Target: <input type="text" id="3" size="19"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Fourth Target: <input type="text" id="4" size="20"></b><br></td>
+				</tr>
+				<tr>
+					<td><b>Amount Selected(1-4): <input type="text" id="5" size="26"></b><br></td>
+				</tr>
+			</table>
+		</div>
+		
+		<center>
+			<br>
+			<td><input id="resetBtn" class="buttonSetup" type="button" value="Reset" onclick="reset ()"/></td><br>
+			<td><input id="calculateBtn" class="buttonSetup" type="button" value="Calculate" onclick="calculate ()"/></td><br><br>
+			<input type="checkbox" id="Generate1" name="generate1" value="Generate1"><b> Ignore genetic algorithm and pick highest target (check box)</b><br>
+			<font size="4" face="verdana" color="red"><b>Target Chosen: </b><span id="showResult1"></span></font><br>
+		</center>
+	</body>
+</html>
